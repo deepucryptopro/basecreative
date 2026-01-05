@@ -1,0 +1,14 @@
+{
+  "accountAssociation": null,
+  "frame": {
+    "version": "1",
+    "name": "BaseCreative",
+    "iconUrl": "https://base-creative.vercel.app/icon.png",
+    "homeUrl": "https://base-creative.vercel.app",
+    "imageUrl": "https://base-creative.vercel.app/og-image.png",
+    "buttonTitle": "Start Designing",
+    "splashImageUrl": "https://base-creative.vercel.app/splash.png",
+    "splashBackgroundColor": "#ffffff",
+    "webhookUrl": "https://base-creative.vercel.app/api/frame-webhook"
+  }
+}
