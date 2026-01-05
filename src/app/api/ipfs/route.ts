@@ -8,11 +8,15 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Missing image data" }, { status: 400 });
         }
 
-        const pinataApiKey = process.env.NEXT_PUBLIC_PINATA_API_KEY;
-        const pinataSecretApiKey = process.env.NEXT_PUBLIC_PINATA_SECRET_API_KEY;
+        const pinataApiKey = process.env.PINATA_API_KEY || process.env.NEXT_PUBLIC_PINATA_API_KEY;
+        const pinataSecretApiKey = process.env.PINATA_SECRET_API_KEY || process.env.NEXT_PUBLIC_PINATA_SECRET_API_KEY;
 
         if (!pinataApiKey || !pinataSecretApiKey) {
-            return NextResponse.json({ error: "Server missing IPFS keys" }, { status: 500 });
+            console.error("Missing Pinata keys. Env vars:", {
+                hasKey: !!pinataApiKey,
+                hasSecret: !!pinataSecretApiKey
+            });
+            return NextResponse.json({ error: "Server missing IPFS keys. Please configure PINATA_API_KEY and PINATA_SECRET_API_KEY in your environment variables." }, { status: 500 });
         }
 
         // 1. Convert Base64 image to Blob/File for upload
