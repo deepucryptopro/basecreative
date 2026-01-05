@@ -15,6 +15,8 @@ import TopToolbar from "@/components/Editor/Layout/TopToolbar";
 import Header from "@/components/Header";
 import { CanvasRef } from "@/components/Editor/Layout/CanvasBoard";
 import { Layout, Globe, UploadCloud, UserCircle } from "lucide-react";
+// @ts-ignore
+import { Web3Storage } from "web3.storage";
 
 // Dynamically import CanvasBoard
 const CanvasBoard = dynamic(() => import("@/components/Editor/Layout/CanvasBoard"), {
@@ -75,26 +77,66 @@ function EditorPageContent() {
     const handleSaveIpfs = async () => {
         const data = canvasRef.current?.exportPng();
         if (!data) return;
+
+        const token = process.env.NEXT_PUBLIC_WEB3_STORAGE_TOKEN;
+        if (!token) {
+            alert("Missing NEXT_PUBLIC_WEB3_STORAGE_TOKEN in .env.local");
+            return;
+        }
+
         setIsSaving(true);
         try {
-            const res = await fetch("/api/ipfs", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    image: data,
-                    name: "My Design",
-                    description: "Created with BaseCreative"
-                })
-            });
-            const json = await res.json();
-            if (json.success) {
-                alert("Saved to IPFS! CID: " + json.metadataCid);
-            } else {
-                alert("Error: " + json.error);
-            }
+            const client = new Web3Storage({ token });
+
+            // 1. Convert Data URL to File
+            const res = await fetch(data);
+            const blob = await res.blob();
+            const fileName = `design-${Date.now()}.png`;
+            const imageFile = new File([blob], fileName, { type: "image/png" });
+
+            // 2. Upload Image
+            console.log("Uploading image to web3.storage...");
+            const imageCid = await client.put([imageFile], { wrapWithDirectory: false });
+            // By default put matches wrapWithDirectory=true return behavior locally or depends on version.
+            // Actually client.put returns the CID of the directory unless wrapWithDirectory: false check.
+            // Let's stick to default which wraps in directory for easier gateway access usually: cid/filename
+            // But lets try to be clean.
+            // If we use wrapWithDirectory: false, the CID is the file itself.
+            // However, verify behavior of web3.storage v4.
+            // Let's use standard default PUT which returns a CID for the directory.
+
+            const imageRefCid = await client.put([imageFile]);
+            const imageUrl = `https://${imageRefCid}.ipfs.dweb.link/${fileName}`;
+            console.log("Image Info:", { imageRefCid, imageUrl });
+
+            // 3. Create Metadata
+            const metadata = {
+                name: "BaseCreative Design",
+                description: "Created with BaseCreative",
+                image: imageUrl,
+                timestamp: new Date().toISOString(),
+                attributes: [
+                    { trait_type: "Tool", value: "BaseCreative Editor" }
+                ]
+            };
+
+            const metaFileName = `metadata-${Date.now()}.json`;
+            const metaFile = new File([JSON.stringify(metadata, null, 2)], metaFileName, { type: "application/json" });
+
+            // 4. Upload Metadata
+            console.log("Uploading metadata to web3.storage...");
+            const metadataCid = await client.put([metaFile]);
+
+            // 5. Success
+            console.log("Saved to IPFS:", metadataCid);
+            alert("Saved to IPFS using web3.storage! Metadata CID: " + metadataCid);
+
+            // Optional: You might want to pass this to the onchain save function
+            // setIpfsCid(metadataCid); // If we had state for it
+
         } catch (e) {
-            console.error(e);
-            alert("Error saving.");
+            console.error("IPFS Save Error:", e);
+            alert("Failed to save to IPFS. See console.");
         } finally {
             setIsSaving(false);
         }
