@@ -4,7 +4,7 @@ A decentralized design studio built on Base. Create simple designs, save them to
 
 ## Features
 - **Design Editor**: HTML5 Canvas-based editor (Fabric.js).
-- **Decentralized Storage**: Save designs and metadata to IPFS via Pinata.
+- **Decentralized Storage**: Save designs and metadata to IPFS via web3.storage.
 - **Onchain Registry**: (Optional) Save your design CID to a smart contract on Base.
 - **Wallet Connection**: Connect with Coinbase Wallet or Metamask via Wagmi.
 
@@ -12,7 +12,7 @@ A decentralized design studio built on Base. Create simple designs, save them to
 
 ### Prerequisites
 - Node.js 18+
-- Pinata Account (for IPFS keys)
+- [web3.storage](https://web3.storage/) Account (Classic token)
 
 ### Installation
 1. Clone the repo and install dependencies:
@@ -20,13 +20,26 @@ A decentralized design studio built on Base. Create simple designs, save them to
    npm install
    ```
 2. Set up environment variables:
-   Copy `.env.example` to `.env.local` and add your Pinata keys.
+   Copy `.env.example` to `.env.local`:
    ```bash
    cp .env.example .env.local
    ```
-   Add:
-   - `NEXT_PUBLIC_PINATA_API_KEY`
-   - `NEXT_PUBLIC_PINATA_SECRET_API_KEY`
+   
+   #### Setting the Token Locally
+   1. Go to [web3.storage](https://web3.storage/) (Classic) or your storage provider.
+   2. Create a new API Token.
+   3. Open `.env.local` and set:
+      ```
+      NEXT_PUBLIC_WEB3_STORAGE_TOKEN=your_token_here
+      ```
+   
+   #### Setting the Token in Vercel
+   1. Go to your project settings in Vercel.
+   2. Navigate to **Environment Variables**.
+   3. Add a new variable:
+      - **Key**: `NEXT_PUBLIC_WEB3_STORAGE_TOKEN`
+      - **Value**: `paste_your_token_here`
+   4. Redeploy your application.
 
 3. Run the development server:
    ```bash
