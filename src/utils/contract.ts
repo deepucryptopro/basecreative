@@ -8,4 +8,11 @@ export const CONTRACT_ABI = [
         stateMutability: "nonpayable",
         type: "function",
     },
+    {
+        inputs: [{ internalType: "string", name: "tokenURI", type: "string" }],
+        name: "mintNFT",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    }
 ] as const;

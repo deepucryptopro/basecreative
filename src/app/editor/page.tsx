@@ -27,6 +27,7 @@ const CanvasBoard = dynamic(() => import("@/components/Editor/Layout/CanvasBoard
 function EditorPageContent() {
     const canvasRef = useRef<CanvasRef>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isMinting, setIsMinting] = useState(false);
 
     // Canvas dimensions state
     const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -35,7 +36,7 @@ function EditorPageContent() {
     const templateId = searchParams.get('template');
 
     const { isConnected } = useAccount();
-    const { writeContract } = useWriteContract();
+    const { writeContractAsync } = useWriteContract();
 
     // Template Loading Logic
     useEffect(() => {
@@ -74,71 +75,93 @@ function EditorPageContent() {
         }
     };
 
-    const handleSaveIpfs = async () => {
+    const uploadToIpfs = async (): Promise<string | null> => {
         const data = canvasRef.current?.exportPng();
-        if (!data) return;
+        if (!data) return null;
 
         const token = process.env.NEXT_PUBLIC_WEB3_STORAGE_TOKEN;
         if (!token) {
             alert("Missing NEXT_PUBLIC_WEB3_STORAGE_TOKEN in .env.local");
-            return;
+            return null;
         }
 
+        const client = new Web3Storage({ token });
+
+        // 1. Convert Data URL to File
+        const res = await fetch(data);
+        const blob = await res.blob();
+        const fileName = `design-${Date.now()}.png`;
+        const imageFile = new File([blob], fileName, { type: "image/png" });
+
+        // 2. Upload Image
+        console.log("Uploading image to web3.storage...");
+        const imageRefCid = await client.put([imageFile]);
+        const imageUrl = `https://${imageRefCid}.ipfs.dweb.link/${fileName}`;
+        console.log("Image Info:", { imageRefCid, imageUrl });
+
+        // 3. Create Metadata
+        const metadata = {
+            name: "BaseCreative Design",
+            description: "Created with BaseCreative",
+            image: imageUrl,
+            timestamp: new Date().toISOString(),
+            attributes: [
+                { trait_type: "Tool", value: "BaseCreative Editor" }
+            ]
+        };
+
+        const metaFileName = `metadata-${Date.now()}.json`;
+        const metaFile = new File([JSON.stringify(metadata, null, 2)], metaFileName, { type: "application/json" });
+
+        // 4. Upload Metadata
+        console.log("Uploading metadata to web3.storage...");
+        const metadataCid = await client.put([metaFile]);
+        return metadataCid;
+    };
+
+    const handleSaveIpfs = async () => {
         setIsSaving(true);
         try {
-            const client = new Web3Storage({ token });
-
-            // 1. Convert Data URL to File
-            const res = await fetch(data);
-            const blob = await res.blob();
-            const fileName = `design-${Date.now()}.png`;
-            const imageFile = new File([blob], fileName, { type: "image/png" });
-
-            // 2. Upload Image
-            console.log("Uploading image to web3.storage...");
-            const imageCid = await client.put([imageFile], { wrapWithDirectory: false });
-            // By default put matches wrapWithDirectory=true return behavior locally or depends on version.
-            // Actually client.put returns the CID of the directory unless wrapWithDirectory: false check.
-            // Let's stick to default which wraps in directory for easier gateway access usually: cid/filename
-            // But lets try to be clean.
-            // If we use wrapWithDirectory: false, the CID is the file itself.
-            // However, verify behavior of web3.storage v4.
-            // Let's use standard default PUT which returns a CID for the directory.
-
-            const imageRefCid = await client.put([imageFile]);
-            const imageUrl = `https://${imageRefCid}.ipfs.dweb.link/${fileName}`;
-            console.log("Image Info:", { imageRefCid, imageUrl });
-
-            // 3. Create Metadata
-            const metadata = {
-                name: "BaseCreative Design",
-                description: "Created with BaseCreative",
-                image: imageUrl,
-                timestamp: new Date().toISOString(),
-                attributes: [
-                    { trait_type: "Tool", value: "BaseCreative Editor" }
-                ]
-            };
-
-            const metaFileName = `metadata-${Date.now()}.json`;
-            const metaFile = new File([JSON.stringify(metadata, null, 2)], metaFileName, { type: "application/json" });
-
-            // 4. Upload Metadata
-            console.log("Uploading metadata to web3.storage...");
-            const metadataCid = await client.put([metaFile]);
-
-            // 5. Success
-            console.log("Saved to IPFS:", metadataCid);
-            alert("Saved to IPFS using web3.storage! Metadata CID: " + metadataCid);
-
-            // Optional: You might want to pass this to the onchain save function
-            // setIpfsCid(metadataCid); // If we had state for it
-
+            const metadataCid = await uploadToIpfs();
+            if (metadataCid) {
+                console.log("Saved to IPFS:", metadataCid);
+                alert("Saved to IPFS using web3.storage! Metadata CID: " + metadataCid);
+            }
         } catch (e) {
             console.error("IPFS Save Error:", e);
             alert("Failed to save to IPFS. See console.");
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleMint = async () => {
+        if (!isConnected) {
+            alert("Please connect wallet to mint NFT");
+            return;
+        }
+
+        setIsMinting(true);
+        try {
+            const metadataCid = await uploadToIpfs();
+            if (!metadataCid) {
+                throw new Error("Failed to upload metadata to IPFS");
+            }
+
+            console.log("Minting with CID:", metadataCid);
+            const txHash = await writeContractAsync({
+                address: CONTRACT_ADDRESS,
+                abi: CONTRACT_ABI,
+                functionName: 'mintNFT',
+                args: [metadataCid],
+            });
+
+            alert(`Minting successful! Transaction Hash: ${txHash}`);
+        } catch (e) {
+            console.error("Minting Error:", e);
+            alert("Minting failed. See console for details.");
+        } finally {
+            setIsMinting(false);
         }
     };
 
@@ -169,7 +192,9 @@ function EditorPageContent() {
             <BottomBar
                 onSaveIpfs={handleSaveIpfs}
                 onDownload={handleDownload}
+                onMint={handleMint}
                 isSaving={isSaving}
+                isMinting={isMinting}
                 ipfsReady={false}
             />
         </div>

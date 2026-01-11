@@ -5,11 +5,13 @@ import { Cloud, Download, Hexagon } from "lucide-react";
 interface BottomBarProps {
     onSaveIpfs: () => void;
     onDownload: () => void;
+    onMint: () => void;
     isSaving: boolean;
+    isMinting: boolean;
     ipfsReady: boolean;
 }
 
-export default function BottomBar({ onSaveIpfs, onDownload, isSaving, ipfsReady }: BottomBarProps) {
+export default function BottomBar({ onSaveIpfs, onDownload, onMint, isSaving, isMinting, ipfsReady }: BottomBarProps) {
     return (
         <div style={{
             height: "80px",
@@ -25,14 +27,20 @@ export default function BottomBar({ onSaveIpfs, onDownload, isSaving, ipfsReady 
                 onClick={onSaveIpfs}
                 className="btn btn-outline"
                 style={{ gap: "0.5rem", height: "44px" }}
+                disabled={isSaving || isMinting}
             >
                 <Cloud size={18} />
                 {isSaving ? "Uploading..." : "Save to IPFS"}
             </button>
 
-            <button className="btn btn-primary" style={{ gap: "0.5rem", height: "44px", padding: "0 2rem", fontSize: "1rem", background: "#3b82f6" }}>
+            <button
+                onClick={onMint}
+                disabled={isSaving || isMinting}
+                className="btn btn-primary"
+                style={{ gap: "0.5rem", height: "44px", padding: "0 2rem", fontSize: "1rem", background: "#3b82f6" }}
+            >
                 <Hexagon size={18} />
-                Mint as NFT
+                {isMinting ? "Minting..." : "Mint as NFT"}
             </button>
 
             <div style={{ display: "flex" }}>
